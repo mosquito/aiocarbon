@@ -78,7 +78,7 @@ async def test_pickle_reconnect(event_loop: asyncio.AbstractEventLoop,
 
     client = PickleClient('127.0.0.1', port=random_port, namespace='')
 
-    count = 99991
+    count = 199991
 
     for i in range(count):
         metric = Metric(name='foo', value=i)
