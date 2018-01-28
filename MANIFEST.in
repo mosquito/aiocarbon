@@ -1,0 +1,6 @@
+recursive-exclude tests *
+recursive-exclude aiocarbon *.pyc
+recursive-exclude __pycache__ *
+recursive-include aiocarbon *.pyx *.pxd *.pyi
+exclude .*
+include README.md
