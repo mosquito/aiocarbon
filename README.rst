@@ -27,7 +27,7 @@ Client for feeding data to graphite.
 Example
 -------
 
-Counter exmaple:
+Counter example:
 
 .. code-block:: python
 
