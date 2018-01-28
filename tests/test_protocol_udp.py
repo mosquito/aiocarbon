@@ -59,7 +59,7 @@ async def test_tcp_simple(event_loop: asyncio.AbstractEventLoop, random_port):
 
 
 async def test_tcp_many(event_loop: asyncio.AbstractEventLoop, random_port):
-    count = 9991
+    count = 99991
     protocol = UDPServerProtocol()
     await event_loop.create_datagram_endpoint(
         lambda: protocol,

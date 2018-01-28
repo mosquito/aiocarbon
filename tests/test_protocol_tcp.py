@@ -113,8 +113,9 @@ async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
     )
 
     client = TCPClient('127.0.0.1', port=random_port, namespace='')
+    count = 199907
 
-    for i in range(99907):
+    for i in range(count):
         metric = Metric(name='foo', value=i)
         client.add(metric)
 
@@ -165,4 +166,4 @@ async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
         assert name == 'foo'
         assert idx == value
 
-    assert len(lines) == 99907
+    assert len(lines) == count
