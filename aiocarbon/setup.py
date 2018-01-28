@@ -12,3 +12,5 @@ def setup(host: str, port: int, client_class: Type[BaseClient]=PickleClient,
     loop = loop or asyncio.get_event_loop()
     client = client_class(host=host, port=port, namespace=namespace, loop=loop)
     set_client(client)
+
+    return client

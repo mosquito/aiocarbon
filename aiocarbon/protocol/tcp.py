@@ -24,6 +24,13 @@ class TCPClient(BaseClient):
             reader.feed_eof()
 
     def format_metric(self, metric: Metric) -> bytes:
-        return "{1} {0.value} {0.timestamp}\n".format(
-            metric, self.format_metric_name(metric)
+        if isinstance(metric.value, float):
+            value = "%.12f" % metric.value
+        else:
+            value = metric.value
+
+        return (
+            "%s %s %s\n" % (
+                self.format_metric_name(metric), value, metric.timestamp,
+            )
         ).encode()

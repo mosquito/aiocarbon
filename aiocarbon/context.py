@@ -2,6 +2,8 @@ import abc
 from collections import defaultdict
 from typing import Optional
 
+import time
+
 from .protocol.base import BaseClient
 from .metric import Metric
 
@@ -64,8 +66,29 @@ class Counter(MeasurementBase):
         self.CLIENT.add(Metric(name, value))
 
 
+class Timer(MeasurementBase):
+    TIMERS = defaultdict(lambda: defaultdict(int))
+
+    def get_metric(self) -> Optional[Metric]:
+        return None
+
+    def __enter__(self):
+        self._start_time = time.monotonic()
+        return super().__enter__()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        delta = time.monotonic() - self._start_time
+
+        if exc_type:
+            name = "%s.%s" % (self._name.rstrip("."), 'fail')
+        else:
+            name = "%s.%s" % (self._name.rstrip("."), 'ok')
+
+        self.CLIENT.add(Metric(name, delta))
+
+
 def set_client(client: BaseClient):
     MeasurementBase.CLIENT = client
 
 
-__all__ = "Meter", "Counter", "set_client",
+__all__ = "Meter", "Counter", "Timer", "set_client",

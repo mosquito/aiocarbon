@@ -23,5 +23,6 @@ __all__ = (
     "PickleClient",
     "Meter",
     "Counter",
+    "Timer",
     "setup",
 )
