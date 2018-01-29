@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from os import path
 
 from importlib.machinery import SourceFileLoader
@@ -12,9 +12,7 @@ module = SourceFileLoader(
 setup(
     name='aiocarbon',
     version=module.__version__,
-    packages=[
-        'aiocarbon',
-    ],
+    packages=find_packages(exclude=['tests', 'example', 'env']),
     license=module.package_license,
     description=module.package_info,
     long_description=open("README.rst").read(),
