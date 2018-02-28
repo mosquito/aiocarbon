@@ -3,6 +3,7 @@ import pickle
 import struct
 
 import pytest
+import time
 
 from aiocarbon.metric import Metric
 from aiocarbon.protocol.pickle import PickleClient
@@ -15,9 +16,10 @@ async def test_pickle_many(event_loop, random_port):
     client = PickleClient('127.0.0.1', port=random_port, namespace='')
 
     count = 9991
+    now = time.time()
 
     for i in range(count):
-        metric = Metric(name='foo', value=i)
+        metric = Metric(name='foo', value=i, timestamp=now - i)
         client.add(metric)
 
     data = list()
@@ -79,9 +81,10 @@ async def test_pickle_reconnect(event_loop: asyncio.AbstractEventLoop,
     client = PickleClient('127.0.0.1', port=random_port, namespace='')
 
     count = 199991
+    now = time.time()
 
     for i in range(count):
-        metric = Metric(name='foo', value=i)
+        metric = Metric(name='foo', value=i, timestamp=now - i)
         client.add(metric)
 
     with pytest.raises(ConnectionError):
@@ -92,6 +95,7 @@ async def test_pickle_reconnect(event_loop: asyncio.AbstractEventLoop,
     event = asyncio.Event()
 
     data = list()
+
     async def handler(reader, writer):
         nonlocal data
         while not reader.at_eof():

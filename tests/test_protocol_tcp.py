@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+import time
 
 from aiocarbon.metric import Metric
 from aiocarbon.protocol.tcp import TCPClient
@@ -58,8 +59,8 @@ async def test_tcp_simple(tcp_server: Server, event_loop):
     name, value, ts = tcp_server.data.decode().strip().split(" ")
 
     assert name == metric.name
-    assert value == str(metric.value)
-    assert ts == str(metric.timestamp)
+    assert int(float(value)) == int(metric.value)
+    assert int(float(ts)) == int(metric.timestamp)
 
     task.cancel()
     await asyncio.wait([task])
@@ -73,15 +74,16 @@ async def test_tcp_many(tcp_server: Server, event_loop):
     )
 
     task = event_loop.create_task(client.run())
+    now = int(time.time())
 
     for i in range(199):
-        metric = Metric(name='foo', value=42)
+        metric = Metric(name='foo', value=42, timestamp=now + i)
         client.add(metric)
 
     await tcp_server.wait_data()
 
     for i in range(199):
-        metric = Metric(name='foo', value=42)
+        metric = Metric(name='foo', value=42, timestamp=now - i)
         client.add(metric)
 
     await tcp_server.wait_data()
@@ -94,7 +96,7 @@ async def test_tcp_many(tcp_server: Server, event_loop):
         name, value, ts = line.decode().strip().split(" ")
 
         assert name == 'foo'
-        assert value == '42'
+        assert int(float(value)) == 42
 
     task.cancel()
     await asyncio.wait([task])
@@ -113,17 +115,18 @@ async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
     )
 
     client = TCPClient('127.0.0.1', port=random_port, namespace='')
-    count = 199907
+    count = 19907
+    now = time.time()
 
     for i in range(count):
-        metric = Metric(name='foo', value=i)
+        metric = Metric(name='foo', value=i, timestamp=now - i)
         client.add(metric)
-
-    with pytest.raises(ConnectionError):
-        await client.send()
 
     server.close()
     await server.wait_closed()
+
+    with pytest.raises(ConnectionError):
+        await client.send()
 
     event = asyncio.Event(loop=event_loop)
 
@@ -161,7 +164,7 @@ async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
 
     for idx, line in lines:
         name, value, _ = line.split(" ")
-        value = int(value)
+        value = float(value)
 
         assert name == 'foo'
         assert idx == value

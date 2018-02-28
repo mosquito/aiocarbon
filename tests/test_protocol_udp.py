@@ -36,7 +36,9 @@ async def test_tcp_simple(event_loop: asyncio.AbstractEventLoop, random_port):
     client = UDPClient("127.0.0.1", port=random_port, namespace='')
     task = event_loop.create_task(client.run())
 
-    metric = Metric(name='foo', value=42)
+    now = time.time()
+
+    metric = Metric(name='foo', value=42, timestamp=now)
     client.add(metric)
 
     data = await protocol.queue.get()
@@ -47,7 +49,7 @@ async def test_tcp_simple(event_loop: asyncio.AbstractEventLoop, random_port):
 
     for line in lines:
         name, value, ts = line.split(' ')
-        value = int(value)
+        value = float(value)
         ts = float(ts)
 
         assert name == 'foo'
@@ -67,9 +69,10 @@ async def test_tcp_many(event_loop: asyncio.AbstractEventLoop, random_port):
     )
 
     client = UDPClient("127.0.0.1", port=random_port, namespace='')
+    now = time.time()
 
     for i in range(count):
-        metric = Metric(name='foo', value=i)
+        metric = Metric(name='foo', value=i, timestamp=now - i)
         client.add(metric)
 
     await client.send()
@@ -90,7 +93,7 @@ async def test_tcp_many(event_loop: asyncio.AbstractEventLoop, random_port):
 
     for idx, line in enumerate(lines):
         name, value, ts = line.split(' ')
-        value = int(value)
+        value = float(value)
         ts = float(ts)
 
         assert name == 'foo'
