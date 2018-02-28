@@ -5,7 +5,7 @@ import struct
 from typing import Tuple
 
 from aiocarbon.metric import Metric
-from .base import BaseClient, chunk_list
+from .base import BaseClient, chunk_list, aggregate_metrics
 
 log = logging.getLogger(__name__)
 
@@ -19,7 +19,8 @@ class PickleClient(BaseClient):
                 self._host, self._port, loop=self.loop
             )
 
-            for chunk in chunk_list(metrics, self.CHUNK_SIZE):
+            chunked = chunk_list(aggregate_metrics(metrics), self.CHUNK_SIZE)
+            for chunk in chunked:
                 payload = pickle.dumps(
                     [self.format_metric(m) for m in chunk],
                     protocol=2

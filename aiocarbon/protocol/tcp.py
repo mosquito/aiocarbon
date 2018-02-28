@@ -2,8 +2,7 @@ import asyncio
 import logging
 
 from aiocarbon.metric import Metric
-from .base import BaseClient
-
+from .base import BaseClient, aggregate_metrics
 
 log = logging.getLogger(__name__)
 
@@ -15,7 +14,7 @@ class TCPClient(BaseClient):
                 self._host, self._port, loop=self.loop
             )
 
-            for metric in metrics:
+            for metric in aggregate_metrics(metrics):
                 value = self.format_metric(metric)
                 writer.write(value)
 

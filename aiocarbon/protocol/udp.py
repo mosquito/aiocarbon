@@ -3,7 +3,7 @@ import logging
 import socket
 
 from aiocarbon.metric import Metric
-from .base import BaseClient, chunk_list
+from .base import BaseClient, chunk_list, aggregate_metrics
 
 log = logging.getLogger(__name__)
 
@@ -95,7 +95,12 @@ class UDPClient(BaseClient):
 
     async def send(self):
         async with self as metrics:
-            for chunk in chunk_list(metrics, self.CHUNK_SIZE):
+            chunked = chunk_list(
+                aggregate_metrics(metrics),
+                self.CHUNK_SIZE
+            )
+
+            for chunk in chunked:
                 payload = b"".join(self.format_metric(m) for m in chunk)
                 await self._socket.sendto(payload, self._host, self._port)
 

@@ -1,14 +1,14 @@
 import abc
 import asyncio
 import logging
-from collections import deque
-from typing import Iterable, Any
+from collections import deque, defaultdict
+from typing import Iterable, TypeVar
 
 import itertools
 
 from aiocarbon.metric import Metric
 
-
+T = TypeVar('T')
 log = logging.getLogger(__name__)
 
 
@@ -70,7 +70,7 @@ class BaseClient:
         self._metrics.append(metric)
 
 
-def chunk_list(iterable: Iterable[Any], size: int):
+def chunk_list(iterable: Iterable[T], size: int) -> Iterable[Iterable[T]]:
     iterable = iter(iterable)
 
     item = list(itertools.islice(iterable, size))
@@ -78,3 +78,14 @@ def chunk_list(iterable: Iterable[Any], size: int):
     while item:
         yield item
         item = list(itertools.islice(iterable, size))
+
+
+def aggregate_metrics(metrics: Iterable[Metric]) -> Iterable[Metric]:
+    result = defaultdict(float)
+
+    for metric in metrics:  # type: Metric
+        result[metric.name, int(metric.timestamp)] += metric.value
+
+    for metric_ts, value in result.items():
+        name, timestamp = metric_ts
+        yield Metric(name=name, timestamp=timestamp, value=value)
