@@ -1,4 +1,5 @@
 import abc
+import threading
 from collections import defaultdict
 from typing import Optional
 
@@ -9,9 +10,13 @@ from .metric import Metric
 
 
 class MeasurementBase:
-    CLIENT = None       # type: BaseClient
-
     __slots__ = "_name",
+
+    TLS = threading.local()
+
+    @property
+    def client(self):
+        return self.TLS.client
 
     def __init__(self, name):
         self._name = name
@@ -23,7 +28,7 @@ class MeasurementBase:
         metric = self.get_metric()
 
         if metric:
-            self.CLIENT.add(metric)
+            self.client.add(metric)
 
     @abc.abstractmethod
     def get_metric(self) -> Optional[Metric]:
@@ -63,7 +68,7 @@ class Counter(MeasurementBase):
         self.COUNTERS[self.__class__][name] += 1
         value = self.COUNTERS[self.__class__][name]
 
-        self.CLIENT.add(Metric(name, value))
+        self.client.add(Metric(name, value))
 
 
 class Timer(MeasurementBase):
@@ -84,11 +89,11 @@ class Timer(MeasurementBase):
         else:
             name = "%s.%s" % (self._name.rstrip("."), 'ok')
 
-        self.CLIENT.add(Metric(name, delta))
+        self.client.add(Metric(name, delta))
 
 
 def set_client(client: BaseClient):
-    MeasurementBase.CLIENT = client
+    MeasurementBase.TLS.client = client
 
 
 __all__ = "Meter", "Counter", "Timer", "set_client",
