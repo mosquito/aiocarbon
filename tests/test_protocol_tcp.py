@@ -54,6 +54,8 @@ async def test_tcp_simple(tcp_server: Server, event_loop):
 
     task = event_loop.create_task(client.run())
 
+    await asyncio.sleep(2)
+
     await tcp_server.wait_data()
 
     name, value, ts = tcp_server.data.decode().strip().split(" ")
@@ -74,7 +76,7 @@ async def test_tcp_many(tcp_server: Server, event_loop):
     )
 
     task = event_loop.create_task(client.run())
-    now = int(time.time())
+    now = int(time.time()) - 86400
 
     for i in range(199):
         metric = Metric(name='foo', value=42, timestamp=now + i)
@@ -116,7 +118,7 @@ async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
 
     client = TCPClient('127.0.0.1', port=random_port, namespace='')
     count = 19907
-    now = time.time()
+    now = time.time() - 1
 
     for i in range(count):
         metric = Metric(name='foo', value=i, timestamp=now - i)
@@ -131,6 +133,7 @@ async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
     event = asyncio.Event(loop=event_loop)
 
     data = b''
+
     async def handler(reader, writer):
         nonlocal data
         while not reader.at_eof():
@@ -151,19 +154,21 @@ async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
     )
 
     await client.send()
+    await asyncio.sleep(0.1)
     await event.wait()
 
     server.close()
     await server.wait_closed()
 
-    lines = list(
-        enumerate(
+    lines = sorted(
+        map(
+            lambda x: x.split(' '),
             filter(None, map(lambda x: x.decode(), data.split(b"\n")))
-        )
+        ),
+        key=lambda x: int(x[1])
     )
 
-    for idx, line in lines:
-        name, value, _ = line.split(" ")
+    for idx, (name, value, ts) in enumerate(lines):
         value = float(value)
 
         assert name == 'foo'

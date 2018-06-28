@@ -1,9 +1,10 @@
 import asyncio
+import io
 import logging
 import socket
 
 from aiocarbon.metric import Metric
-from .base import BaseClient, chunk_list, aggregate_metrics
+from .base import BaseClient
 
 log = logging.getLogger(__name__)
 
@@ -86,23 +87,31 @@ class AsyncUDPSocket:
 
 
 class UDPClient(BaseClient):
-    CHUNK_SIZE = 50
+    SENDING_THRESHOLD = 1200
 
     def __init__(self, host: str, port: int = 2003, namespace: str=None,
                  loop: asyncio.AbstractEventLoop = None):
+
         super().__init__(host, port, namespace=namespace, loop=loop)
         self._socket = AsyncUDPSocket(loop=self.loop)
 
     async def send(self):
-        async with self as metrics:
-            chunked = chunk_list(
-                aggregate_metrics(metrics),
-                self.CHUNK_SIZE
-            )
+        with io.BytesIO() as buffer:
+            async for metric in self:
+                buffer.write(self.format_metric(metric))
 
-            for chunk in chunked:
-                payload = b"".join(self.format_metric(m) for m in chunk)
-                await self._socket.sendto(payload, self._host, self._port)
+                if buffer.tell() > self.SENDING_THRESHOLD:
+                    await self._socket.sendto(
+                        buffer.getvalue(), self._host, self._port
+                    )
+
+                    buffer.seek(0)
+                    buffer.truncate(0)
+
+            if buffer.tell():
+                await self._socket.sendto(
+                    buffer.getvalue(), self._host, self._port
+                )
 
     def format_metric(self, metric: Metric) -> bytes:
         if isinstance(metric.value, float):

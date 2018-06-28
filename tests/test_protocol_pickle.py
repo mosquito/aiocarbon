@@ -16,7 +16,7 @@ async def test_pickle_many(event_loop, random_port):
     client = PickleClient('127.0.0.1', port=random_port, namespace='')
 
     count = 9991
-    now = time.time()
+    now = time.time() - 1
 
     for i in range(count):
         metric = Metric(name='foo', value=i, timestamp=now - i)
@@ -25,18 +25,23 @@ async def test_pickle_many(event_loop, random_port):
     data = list()
     event = asyncio.Event(loop=event_loop)
 
-    async def handler(reader, writer):
+    async def handler(reader: asyncio.StreamReader,
+                      writer: asyncio.StreamWriter):
+
         nonlocal data
+
+        header_size = struct.calcsize('!L')
+
         while not reader.at_eof():
             try:
-                header = await reader.readexactly(4)
+                header = await reader.readexactly(header_size)
             except asyncio.IncompleteReadError:
                 break
 
-            chunk_size = struct.unpack("!L", header)[0]
+            payload_size = struct.unpack("!L", header)[0]
 
             try:
-                payload = await reader.readexactly(chunk_size)
+                payload = await reader.readexactly(payload_size)
             except asyncio.IncompleteReadError:
                 break
 
@@ -52,11 +57,12 @@ async def test_pickle_many(event_loop, random_port):
     )
 
     await client.send()
+    await asyncio.sleep(0.1)
     await event.wait()
 
     assert len(data) == count
 
-    for idx, metric in enumerate(data):
+    for idx, metric in enumerate(sorted(data, key=lambda x: x[1][1])):
         name, payload = metric
         ts, value = payload
 
@@ -67,7 +73,7 @@ async def test_pickle_many(event_loop, random_port):
 
 
 async def test_pickle_reconnect(event_loop: asyncio.AbstractEventLoop,
-                             random_port):
+                                random_port):
 
     async def handler(reader, writer):
         await reader.read(10)
@@ -81,14 +87,11 @@ async def test_pickle_reconnect(event_loop: asyncio.AbstractEventLoop,
     client = PickleClient('127.0.0.1', port=random_port, namespace='')
 
     count = 199991
-    now = time.time()
+    now = time.time() - 86400
 
     for i in range(count):
         metric = Metric(name='foo', value=i, timestamp=now - i)
         client.add(metric)
-
-    with pytest.raises(ConnectionError):
-        await client.send()
 
     server.close()
     await server.wait_closed()
@@ -123,11 +126,12 @@ async def test_pickle_reconnect(event_loop: asyncio.AbstractEventLoop,
     )
 
     await client.send()
+    await asyncio.sleep(0.1)
     await event.wait()
 
     assert len(data) == count
 
-    for idx, metric in enumerate(data):
+    for idx, metric in enumerate(sorted(data, key=lambda x: x[1][1])):
         name, payload = metric
         ts, value = payload
 

@@ -1,6 +1,6 @@
 import abc
 import threading
-from collections import defaultdict
+from collections import defaultdict, Counter as _Counter
 from typing import Optional
 
 import time
@@ -36,7 +36,7 @@ class MeasurementBase:
 
 
 class Meter(MeasurementBase):
-    VALUES = defaultdict(lambda: defaultdict(int))
+    VALUES = defaultdict(_Counter)
 
     def get_metric(self) -> Metric:
         return Metric(self._name, self.value)
@@ -54,8 +54,6 @@ class Meter(MeasurementBase):
 
 
 class Counter(MeasurementBase):
-    COUNTERS = defaultdict(lambda: defaultdict(int))
-
     def get_metric(self) -> Optional[Metric]:
         return None
 
@@ -65,14 +63,11 @@ class Counter(MeasurementBase):
         else:
             name = "%s.%s" % (self._name.rstrip("."), 'ok')
 
-        self.COUNTERS[self.__class__][name] += 1
-        value = self.COUNTERS[self.__class__][name]
-
-        self.client.add(Metric(name, value))
+        self.client.add(Metric(name, 1))
 
 
 class Timer(MeasurementBase):
-    TIMERS = defaultdict(lambda: defaultdict(int))
+    TIMERS = defaultdict(_Counter)
 
     def get_metric(self) -> Optional[Metric]:
         return None

@@ -1,10 +1,10 @@
 import abc
 import asyncio
 import logging
-from collections import deque, defaultdict
-from typing import Iterable, TypeVar
+import time
 
-import itertools
+from collections import Counter, defaultdict
+from typing import TypeVar, AsyncIterable
 
 from aiocarbon.metric import Metric
 
@@ -19,12 +19,12 @@ class BaseClient:
                  loop: asyncio.AbstractEventLoop = None,
                  namespace: str=None):
         self.loop = loop or asyncio.get_event_loop()
-        self._ns = namespace if namespace is not None else 'carbon'
+        self._ns = namespace if namespace is not None else 'aiocarbon'
         self._host = host
         self._port = port
-        self._metrics = deque()
+
         self._lock = asyncio.Lock(loop=self.loop)
-        self.__metrics = deque()
+        self._metrics = defaultdict(Counter)
 
     async def run(self):
         while True:
@@ -35,28 +35,33 @@ class BaseClient:
             finally:
                 await asyncio.sleep(self.SEND_PERIOD, loop=self.loop)
 
-    async def __aenter__(self):
-        await self._lock.acquire()
-        while self._metrics:
-            metric = self._metrics.popleft()
-            self.__metrics.append(metric)
+    async def __aiter__(self) -> AsyncIterable[Metric]:
+        async with self._lock:
+            current_time = int(time.time())
 
-        return self.__metrics
+            for name, metrics in self._metrics.items():  # type: Counter
+                returning = list()
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if exc_type:
-            while self.__metrics:
-                self._metrics.appendleft(self.__metrics.pop())
-        else:
-            self.__metrics.clear()
+                while metrics:
+                    ts, value = metrics.popitem()
 
-        self._lock.release()
+                    if ts >= current_time:
+                        returning.append((ts, value))
+                        continue
+
+                    yield Metric(name=name, timestamp=ts, value=value)
+
+                for ts, value in returning:
+                    metrics[ts] += value
 
     def format_metric_name(self, metric: Metric):
         if self._ns:
             return ".".join((self._ns, metric.name))
         else:
             return metric.name
+
+    def poll(self):
+        return any(self._metrics.values())
 
     @abc.abstractmethod
     def send(self):
@@ -67,25 +72,4 @@ class BaseClient:
         raise NotImplementedError
 
     def add(self, metric: Metric):
-        self._metrics.append(metric)
-
-
-def chunk_list(iterable: Iterable[T], size: int) -> Iterable[Iterable[T]]:
-    iterable = iter(iterable)
-
-    item = list(itertools.islice(iterable, size))
-
-    while item:
-        yield item
-        item = list(itertools.islice(iterable, size))
-
-
-def aggregate_metrics(metrics: Iterable[Metric]) -> Iterable[Metric]:
-    result = defaultdict(float)
-
-    for metric in metrics:  # type: Metric
-        result[metric.name, int(metric.timestamp)] += metric.value
-
-    for metric_ts, value in result.items():
-        name, timestamp = metric_ts
-        yield Metric(name=name, timestamp=timestamp, value=value)
+        self._metrics[metric.name][metric.timestamp] += metric.value
