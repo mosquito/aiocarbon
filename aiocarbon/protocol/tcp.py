@@ -11,23 +11,21 @@ class TCPClient(BaseClient):
     CHUNK_SIZE = 512
 
     async def send(self):
-        reader, writer = await asyncio.open_connection(
-            self._host, self._port, loop=self.loop
-        )
+        async with self.lock:
+            reader, writer = await asyncio.open_connection(
+                self._host, self._port, loop=self.loop
+            )
 
-        idx = 0
-        async for metric in self:
-            value = self.format_metric(metric)
-            writer.write(value)
+            for idx, metric in enumerate(self):
+                value = self.format_metric(metric)
+                writer.write(value)
 
-            if idx % self.CHUNK_SIZE == 0:
-                await writer.drain()
+                if idx % self.CHUNK_SIZE == 0:
+                    await writer.drain()
 
-            idx += 1
-
-        await writer.drain()
-        writer.close()
-        reader.feed_eof()
+            await writer.drain()
+            writer.close()
+            reader.feed_eof()
 
     def format_metric(self, metric: Metric) -> bytes:
         if isinstance(metric.value, float):

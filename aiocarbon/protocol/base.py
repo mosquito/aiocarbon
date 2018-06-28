@@ -23,7 +23,7 @@ class BaseClient:
         self._host = host
         self._port = port
 
-        self._lock = asyncio.Lock(loop=self.loop)
+        self.lock = asyncio.Lock(loop=self.loop)
         self._metrics = defaultdict(Counter)
 
     async def run(self):
@@ -35,24 +35,23 @@ class BaseClient:
             finally:
                 await asyncio.sleep(self.SEND_PERIOD, loop=self.loop)
 
-    async def __aiter__(self) -> AsyncIterable[Metric]:
-        async with self._lock:
-            current_time = int(time.time())
+    def __iter__(self) -> AsyncIterable[Metric]:
+        current_time = int(time.time())
 
-            for name, metrics in self._metrics.items():  # type: Counter
-                returning = list()
+        for name, metrics in self._metrics.items():  # type: Counter
+            returning = list()
 
-                while metrics:
-                    ts, value = metrics.popitem()
+            while metrics:
+                ts, value = metrics.popitem()
 
-                    if ts >= current_time:
-                        returning.append((ts, value))
-                        continue
+                if ts >= current_time:
+                    returning.append((ts, value))
+                    continue
 
-                    yield Metric(name=name, timestamp=ts, value=value)
+                yield Metric(name=name, timestamp=ts, value=value)
 
-                for ts, value in returning:
-                    metrics[ts] += value
+            for ts, value in returning:
+                metrics[ts] += value
 
     def format_metric_name(self, metric: Metric):
         if self._ns:

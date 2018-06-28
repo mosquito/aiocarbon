@@ -96,22 +96,23 @@ class UDPClient(BaseClient):
         self._socket = AsyncUDPSocket(loop=self.loop)
 
     async def send(self):
-        with io.BytesIO() as buffer:
-            async for metric in self:
-                buffer.write(self.format_metric(metric))
+        async with self.lock:
+            with io.BytesIO() as buffer:
+                for metric in self:
+                    buffer.write(self.format_metric(metric))
 
-                if buffer.tell() > self.SENDING_THRESHOLD:
+                    if buffer.tell() > self.SENDING_THRESHOLD:
+                        await self._socket.sendto(
+                            buffer.getvalue(), self._host, self._port
+                        )
+
+                        buffer.seek(0)
+                        buffer.truncate(0)
+
+                if buffer.tell():
                     await self._socket.sendto(
                         buffer.getvalue(), self._host, self._port
                     )
-
-                    buffer.seek(0)
-                    buffer.truncate(0)
-
-            if buffer.tell():
-                await self._socket.sendto(
-                    buffer.getvalue(), self._host, self._port
-                )
 
     def format_metric(self, metric: Metric) -> bytes:
         if isinstance(metric.value, float):

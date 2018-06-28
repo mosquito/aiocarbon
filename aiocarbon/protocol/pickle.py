@@ -36,20 +36,18 @@ class PickleClient(BaseClient):
                 break
 
     async def send(self):
-        data = []
+        async with self.lock:
+            data = []
 
-        idx = 0
-        async for metric in self:
-            data.append(self.format_metric(metric))
+            for idx, metric in enumerate(self):
+                data.append(self.format_metric(metric))
 
-            if idx % self.CHUNK_SIZE == 0:
+                if idx % self.CHUNK_SIZE == 0:
+                    await self.__sender(data)
+                    data.clear()
+
+            if data:
                 await self.__sender(data)
-                data.clear()
-
-            idx += 1
-
-        if data:
-            await self.__sender(data)
 
     def format_metric(self, metric: Metric) -> Tuple[str, Tuple[float, int]]:
         return (
