@@ -12,6 +12,16 @@ T = TypeVar('T')
 log = logging.getLogger(__name__)
 
 
+class Operations:
+    @staticmethod
+    def add(store: Counter, metric: Metric):
+        store[metric.timestamp] += metric.value
+
+    @staticmethod
+    def avg(store: Counter, metric: Metric):
+        store[metric.timestamp] = (store[metric.timestamp] + metric.value) / 2
+
+
 class BaseClient:
     SEND_PERIOD = 1
 
@@ -70,5 +80,5 @@ class BaseClient:
     def format_metric(self, metric: Metric):
         raise NotImplementedError
 
-    def add(self, metric: Metric):
-        self._metrics[metric.name][metric.timestamp] += metric.value
+    def add(self, metric: Metric, operation=Operations.add):
+        operation(self._metrics[metric.name], metric)
