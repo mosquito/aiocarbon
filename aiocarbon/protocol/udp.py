@@ -9,11 +9,23 @@ from .base import BaseClient
 log = logging.getLogger(__name__)
 
 
-class AsyncUDPSocket:
+async def resolver(host, port, loop):
+    addr_info = await loop.getaddrinfo(host, port)
 
+    family, _, _, _, host_info = next(
+        filter(
+            lambda x: x[1] == socket.SOCK_DGRAM,
+            addr_info
+        )
+    )
+
+    return family, host_info[0], port
+
+
+class AsyncUDPSocket:
     __slots__ = (
         '__loop', '__sock', '__address',
-        '__futures', '__closed', '__writer_added'
+        '__futures', '__closed', '__writer_added',
     )
 
     @staticmethod
@@ -25,14 +37,19 @@ class AsyncUDPSocket:
 
     def __init__(self, loop=None):
         self.__loop = asyncio.get_event_loop() if loop is None else loop
-        self.__sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.__sock.setblocking(False)
+        self.__sock = None      # type: socket.socket
 
         self.__futures = list()
         self.__closed = False
         self.__writer_added = False
 
-    def sendto(self, data, host, port):
+    async def sendto(self, data, host, port):
+        family, host, port = await resolver(host, port, self.__loop)
+
+        if self.__sock is None:
+            self.__sock = socket.socket(family, socket.SOCK_DGRAM)
+            self.__sock.setblocking(False)
+
         data = data if isinstance(data, bytes) else str(data).encode('utf-8')
         future = self.create_future(self.__loop)
 
@@ -43,7 +60,7 @@ class AsyncUDPSocket:
             self.__loop.add_writer(self.__sock.fileno(), self.__sender)
             self.__writer_added = True
 
-        return future
+        return await future
 
     def __sender(self):
         if not self.__futures:

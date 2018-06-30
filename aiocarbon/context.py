@@ -1,7 +1,5 @@
-import abc
 import threading
-from collections import defaultdict, Counter as _Counter, deque
-from typing import Optional, ClassVar
+from typing import ClassVar
 
 import time
 
@@ -25,6 +23,7 @@ class Meter:
                 Metric(self._name, self.value, self.timestamp),
                 operation=operation
             )
+
 
 class Counter(Meter):
     def __enter__(self):
