@@ -40,4 +40,7 @@ setup(
         'Topic :: System',
         'Topic :: System :: Operating System',
     ],
+    install_requires=[
+        "immutables",
+    ]
 )

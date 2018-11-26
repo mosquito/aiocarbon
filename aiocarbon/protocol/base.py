@@ -1,15 +1,25 @@
 import abc
 import asyncio
 import logging
+import re
 import time
 
-from collections import Counter, OrderedDict, Callable
+from collections import Counter
 from typing import TypeVar, AsyncIterable
+
+from immutables import Map
 
 from aiocarbon.metric import Metric
 
+
 T = TypeVar('T')
 log = logging.getLogger(__name__)
+
+CARBON_NS_INVALID_CHARS = re.compile(r'([^\w\d\.\-]+|(\.){2,})')
+
+
+def strip_carbon_ns(string):
+    return CARBON_NS_INVALID_CHARS.sub('_', string).strip('_').lower()
 
 
 class Operations:
@@ -22,51 +32,6 @@ class Operations:
         store[metric.timestamp] = (store[metric.timestamp] + metric.value) / 2
 
 
-class DefaultOrderedDict(OrderedDict):
-    # Source: http://stackoverflow.com/a/6190500/562769
-    def __init__(self, default_factory=None, *a, **kw):
-        if (default_factory is not None and
-           not isinstance(default_factory, Callable)):
-            raise TypeError('first argument must be callable')
-
-        OrderedDict.__init__(self, *a, **kw)
-        self.default_factory = default_factory
-
-    def __getitem__(self, key):
-        try:
-            return OrderedDict.__getitem__(self, key)
-        except KeyError:
-            return self.__missing__(key)
-
-    def __missing__(self, key):
-        if self.default_factory is None:
-            raise KeyError(key)
-        self[key] = value = self.default_factory()
-        return value
-
-    def __reduce__(self):
-        if self.default_factory is None:
-            args = tuple()
-        else:
-            args = self.default_factory,
-        return type(self), args, None, None, self.items()
-
-    def copy(self):
-        return self.__copy__()
-
-    def __copy__(self):
-        return type(self)(self.default_factory, self)
-
-    def __deepcopy__(self, memo):
-        import copy
-        return type(self)(self.default_factory,
-                          copy.deepcopy(self.items()))
-
-    def __repr__(self):
-        return 'OrderedDefaultDict(%s, %s)' % (self.default_factory,
-                                               OrderedDict.__repr__(self))
-
-
 class BaseClient:
     SEND_PERIOD = 1
 
@@ -74,12 +39,20 @@ class BaseClient:
                  loop: asyncio.AbstractEventLoop = None,
                  namespace: str=None):
         self.loop = loop or asyncio.get_event_loop()
-        self._ns = namespace if namespace is not None else 'aiocarbon'
+        self.namespace = namespace if namespace is not None else 'aiocarbon'
         self._host = host
         self._port = port
+        self._metrics = Map()
 
         self.lock = asyncio.Lock(loop=self.loop)
-        self._metrics = DefaultOrderedDict(Counter)
+
+    @property
+    def namespace(self):
+        return self._ns
+
+    @namespace.setter
+    def namespace(self, value):
+        self._ns = strip_carbon_ns(value)
 
     async def run(self):
         while True:
@@ -125,5 +98,11 @@ class BaseClient:
     def format_metric(self, metric: Metric):
         raise NotImplementedError
 
+    def _get_metric(self, name):
+        if name not in self._metrics:
+            self._metrics = self._metrics.set(name, Counter())
+
+        return self._metrics[name]
+
     def add(self, metric: Metric, operation=Operations.add):
-        operation(self._metrics[metric.name], metric)
+        operation(self._get_metric(metric.name), metric)
