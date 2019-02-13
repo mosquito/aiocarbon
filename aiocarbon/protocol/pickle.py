@@ -39,7 +39,7 @@ class PickleClient(BaseClient):
         async with self.lock:
             data = []
 
-            for idx, metric in enumerate(self):
+            for idx, metric in enumerate(self._storage):
                 data.append(self.format_metric(metric))
 
                 if idx % self.CHUNK_SIZE == 0:

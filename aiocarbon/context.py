@@ -3,7 +3,8 @@ from typing import ClassVar
 
 import time
 
-from .protocol.base import BaseClient, Operations
+from .protocol.base import BaseClient
+from .storage.base import Operations
 from .metric import Metric
 
 

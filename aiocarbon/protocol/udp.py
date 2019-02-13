@@ -115,7 +115,7 @@ class UDPClient(BaseClient):
     async def send(self):
         async with self.lock:
             with io.BytesIO() as buffer:
-                for metric in self:
+                for metric in self._storage:
                     buffer.write(self.format_metric(metric))
 
                     if buffer.tell() > self.SENDING_THRESHOLD:
