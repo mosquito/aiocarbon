@@ -1,5 +1,4 @@
 import time
-from collections import Counter
 from typing import AsyncIterable
 
 from immutables import Map
@@ -8,14 +7,14 @@ from aiocarbon.storage.base import BaseStorage
 from aiocarbon.metric import Metric
 
 
-class TotalStorage(BaseStorage):
+class RawStorage(BaseStorage):
 
-    """ Adds up values of the same metrics with the same timestamps """
+    """ Saves metrics as is """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._metrics = Map()
-        self._storage_class = Counter
+        self._storage_class = list
 
     def __iter__(self) -> AsyncIterable[Metric]:
         current_time = int(time.time())
@@ -23,8 +22,7 @@ class TotalStorage(BaseStorage):
         for name, metrics in self._metrics.items():  # type: Counter
             returning = list()
 
-            while metrics:
-                ts, value = metrics.popitem()
+            for ts, value in metrics:
 
                 if ts >= current_time:
                     returning.append((ts, value))
@@ -32,5 +30,8 @@ class TotalStorage(BaseStorage):
 
                 yield Metric(name=name, timestamp=ts, value=value)
 
-            for ts, value in returning:
-                metrics[ts] += value
+            metrics.clear()
+            metrics.extend(returning)
+
+    def add(self, metric: Metric, operation=None):
+        self._get_metric(metric.name).append((metric.timestamp, metric.value))

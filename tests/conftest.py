@@ -12,18 +12,17 @@ def event_loop():
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    yield loop
-    loop.close()
+    try:
+        yield loop
+    finally:
+        loop.close()
 
 
 class Server:
     def __init__(self, loop, host, port):
         self.loop = loop
-        self.loop.run_until_complete(
-            asyncio.start_server(
-                self.handler, host, port, loop=loop
-            )
-        )
+        self.task = self.loop.create_task(
+            asyncio.start_server(self.handler, host, port, loop=loop))
 
         self.host = host
         self.port = port
@@ -44,9 +43,13 @@ class Server:
 
 
 @pytest.fixture()
-def tcp_server(event_loop, unused_tcp_port):
+async def tcp_server(event_loop, unused_tcp_port):
     server = Server(loop=event_loop, host='127.0.0.1', port=unused_tcp_port)
-    yield server
+    try:
+        yield server
+    finally:
+        server.task.cancel()
+        await asyncio.wait([server.task])
 
 
 @pytest.fixture()
@@ -57,9 +60,11 @@ async def tcp_client(event_loop, tcp_server):
         namespace='',
     )
     task = event_loop.create_task(client.run())
-    yield client
-    task.cancel()
-    await asyncio.wait([task])
+    try:
+        yield client
+    finally:
+        task.cancel()
+        await asyncio.wait([task])
 
 
 @pytest.fixture()
