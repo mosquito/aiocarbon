@@ -140,4 +140,3 @@ async def test_pickle_reconnect(event_loop: asyncio.AbstractEventLoop,
 
     server.close()
     await server.wait_closed()
-

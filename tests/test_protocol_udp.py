@@ -26,7 +26,8 @@ class UDPServerProtocol(asyncio.DatagramProtocol):
         self.queue.put_nowait(None)
 
 
-async def test_udp_simple(event_loop: asyncio.AbstractEventLoop, unused_tcp_port):
+async def test_udp_simple(event_loop: asyncio.AbstractEventLoop,
+                          unused_tcp_port):
     protocol = UDPServerProtocol()
     await event_loop.create_datagram_endpoint(
         lambda: protocol,
@@ -60,7 +61,8 @@ async def test_udp_simple(event_loop: asyncio.AbstractEventLoop, unused_tcp_port
     await asyncio.wait([task])
 
 
-async def test_udp_many(event_loop: asyncio.AbstractEventLoop, unused_tcp_port):
+async def test_udp_many(event_loop: asyncio.AbstractEventLoop,
+                        unused_tcp_port):
     count = 99991
     protocol = UDPServerProtocol()
     await event_loop.create_datagram_endpoint(

@@ -1,7 +1,5 @@
 import time
 import asyncio
-import socket
-from contextlib import closing
 
 import pytest
 
@@ -62,6 +60,7 @@ async def tcp_client(event_loop, tcp_server):
     yield client
     task.cancel()
     await asyncio.wait([task])
+
 
 @pytest.fixture()
 def timestamp():

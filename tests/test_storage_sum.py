@@ -1,8 +1,5 @@
-import asyncio
-
 import pytest
 
-from aiocarbon.protocol.tcp import TCPClient
 from aiocarbon.metric import Metric
 
 
