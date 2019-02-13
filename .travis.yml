@@ -3,7 +3,6 @@ cache: pip
 python:
   - '3.5'
   - '3.6'
-  - '3.7'
   - 'nightly'
 install:
   - pip install -U pytest pytest-cov pytest-asyncio

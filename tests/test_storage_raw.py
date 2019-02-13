@@ -19,6 +19,7 @@ async def test_send_metrics_with_same_ts(tcp_server, tcp_client, timestamp):
     for metric in metrics:
         tcp_client.add(metric)
 
+    await asyncio.sleep(2)
     await tcp_server.wait_data()
 
     lines = list(filter(None, tcp_server.data.split(b"\n")))
