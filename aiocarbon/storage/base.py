@@ -22,7 +22,7 @@ class BaseStorage:
 
     @abc.abstractmethod
     def __iter__(self) -> AsyncIterable[Metric]:
-        raise NotImplemented
+        raise NotImplementedError
 
     def _get_metric(self, name):
         if name not in self._metrics:

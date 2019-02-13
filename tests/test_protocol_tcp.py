@@ -99,7 +99,6 @@ async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
     )
 
     await client.send()
-    await asyncio.sleep(0.1)
     await event.wait()
 
     server.close()

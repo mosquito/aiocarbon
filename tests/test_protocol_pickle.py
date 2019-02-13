@@ -48,7 +48,8 @@ async def test_pickle_many(event_loop, unused_tcp_port):
             for metric in pickle.loads(payload):
                 data.append(metric)
 
-        event.set()
+        if len(data) == count:
+            event.set()
         writer.close()
         reader.feed_eof()
 
@@ -57,10 +58,7 @@ async def test_pickle_many(event_loop, unused_tcp_port):
     )
 
     await client.send()
-    await asyncio.sleep(0.1)
     await event.wait()
-
-    assert len(data) == count
 
     for idx, metric in enumerate(sorted(data, key=lambda x: x[1][1])):
         name, payload = metric
@@ -117,7 +115,8 @@ async def test_pickle_reconnect(event_loop: asyncio.AbstractEventLoop,
             for metric in pickle.loads(payload):
                 data.append(metric)
 
-        event.set()
+        if len(data) == count:
+            event.set()
         writer.close()
         reader.feed_eof()
 
@@ -126,10 +125,7 @@ async def test_pickle_reconnect(event_loop: asyncio.AbstractEventLoop,
     )
 
     await client.send()
-    await asyncio.sleep(0.1)
     await event.wait()
-
-    assert len(data) == count
 
     for idx, metric in enumerate(sorted(data, key=lambda x: x[1][1])):
         name, payload = metric

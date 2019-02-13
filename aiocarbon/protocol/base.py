@@ -2,10 +2,6 @@ import abc
 import asyncio
 import logging
 import re
-import time
-
-from collections import Counter
-from typing import AsyncIterable
 
 from aiocarbon.metric import Metric
 from aiocarbon.storage.base import BaseStorage
