@@ -26,14 +26,14 @@ class UDPServerProtocol(asyncio.DatagramProtocol):
         self.queue.put_nowait(None)
 
 
-async def test_tcp_simple(event_loop: asyncio.AbstractEventLoop, random_port):
+async def test_udp_simple(event_loop: asyncio.AbstractEventLoop, unused_tcp_port):
     protocol = UDPServerProtocol()
     await event_loop.create_datagram_endpoint(
         lambda: protocol,
-        local_addr=('127.0.0.1', random_port)
+        local_addr=('127.0.0.1', unused_tcp_port)
     )
 
-    client = UDPClient("127.0.0.1", port=random_port, namespace='')
+    client = UDPClient("127.0.0.1", port=unused_tcp_port, namespace='')
     task = event_loop.create_task(client.run())
 
     now = time.time()
@@ -60,15 +60,15 @@ async def test_tcp_simple(event_loop: asyncio.AbstractEventLoop, random_port):
     await asyncio.wait([task])
 
 
-async def test_udp_many(event_loop: asyncio.AbstractEventLoop, random_port):
+async def test_udp_many(event_loop: asyncio.AbstractEventLoop, unused_tcp_port):
     count = 99991
     protocol = UDPServerProtocol()
     await event_loop.create_datagram_endpoint(
         lambda: protocol,
-        local_addr=('127.0.0.1', random_port)
+        local_addr=('127.0.0.1', unused_tcp_port)
     )
 
-    client = UDPClient("127.0.0.1", port=random_port, namespace='')
+    client = UDPClient("127.0.0.1", port=unused_tcp_port, namespace='')
     now = time.time() - 5
 
     for i in range(count):

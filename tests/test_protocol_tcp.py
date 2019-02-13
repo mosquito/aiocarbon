@@ -10,51 +10,9 @@ from aiocarbon.protocol.tcp import TCPClient
 pytestmark = pytest.mark.asyncio
 
 
-class Server:
-    def __init__(self, loop, host, port):
-        self.loop = loop
-        self.loop.run_until_complete(
-            asyncio.start_server(
-                self.handler, host, port, loop=loop
-            )
-        )
-
-        self.host = host
-        self.port = port
-        self.data = b''
-        self.event = asyncio.Event(loop=self.loop)
-
-    async def handler(self, reader: asyncio.StreamReader,
-                      writer: asyncio.StreamWriter):
-        while not reader.at_eof():
-            self.data += await reader.read(1)
-
-        self.event.set()
-
-    async def wait_data(self):
-        await self.event.wait()
-        self.event = asyncio.Event(loop=self.loop)
-
-
-@pytest.fixture()
-def tcp_server(event_loop, random_port):
-    server = Server(loop=event_loop, host='127.0.0.1', port=random_port)
-    yield server
-
-
-async def test_tcp_simple(tcp_server: Server, event_loop):
-    client = TCPClient(
-        tcp_server.host,
-        port=tcp_server.port,
-        namespace='',
-    )
-
+async def test_tcp_simple(tcp_client, tcp_server, event_loop):
     metric = Metric(name='foo', value=42)
-    client.add(metric)
-
-    task = event_loop.create_task(client.run())
-
-    await asyncio.sleep(2)
+    tcp_client.add(metric)
 
     await tcp_server.wait_data()
 
@@ -64,29 +22,19 @@ async def test_tcp_simple(tcp_server: Server, event_loop):
     assert int(float(value)) == int(metric.value)
     assert int(float(ts)) == int(metric.timestamp)
 
-    task.cancel()
-    await asyncio.wait([task])
 
-
-async def test_tcp_many(tcp_server: Server, event_loop):
-    client = TCPClient(
-        tcp_server.host,
-        port=tcp_server.port,
-        namespace='',
-    )
-
-    task = event_loop.create_task(client.run())
+async def test_tcp_many(tcp_client, tcp_server, event_loop):
     now = int(time.time()) - 86400
 
     for i in range(199):
         metric = Metric(name='foo', value=42, timestamp=now + i)
-        client.add(metric)
+        tcp_client.add(metric)
 
     await tcp_server.wait_data()
 
     for i in range(199):
         metric = Metric(name='foo', value=42, timestamp=now - i)
-        client.add(metric)
+        tcp_client.add(metric)
 
     await tcp_server.wait_data()
 
@@ -100,12 +48,9 @@ async def test_tcp_many(tcp_server: Server, event_loop):
         assert name == 'foo'
         assert int(float(value)) == 42
 
-    task.cancel()
-    await asyncio.wait([task])
-
 
 async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
-                             random_port):
+                             unused_tcp_port):
 
     async def handler(reader, writer):
         await reader.read(10)
@@ -113,10 +58,10 @@ async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
         reader.feed_eof()
 
     server = await asyncio.start_server(
-        handler, '127.0.0.1', random_port, loop=event_loop
+        handler, '127.0.0.1', unused_tcp_port, loop=event_loop
     )
 
-    client = TCPClient('127.0.0.1', port=random_port, namespace='')
+    client = TCPClient('127.0.0.1', port=unused_tcp_port, namespace='')
     count = 19907
     now = time.time() - 1
 
@@ -150,7 +95,7 @@ async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
         event.set()
 
     server = await asyncio.start_server(
-        handler, '127.0.0.1', random_port, loop=event_loop
+        handler, '127.0.0.1', unused_tcp_port, loop=event_loop
     )
 
     await client.send()

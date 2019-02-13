@@ -12,8 +12,8 @@ from aiocarbon.protocol.pickle import PickleClient
 pytestmark = pytest.mark.asyncio
 
 
-async def test_pickle_many(event_loop, random_port):
-    client = PickleClient('127.0.0.1', port=random_port, namespace='')
+async def test_pickle_many(event_loop, unused_tcp_port):
+    client = PickleClient('127.0.0.1', port=unused_tcp_port, namespace='')
 
     count = 9991
     now = time.time() - 1
@@ -53,7 +53,7 @@ async def test_pickle_many(event_loop, random_port):
         reader.feed_eof()
 
     server = await asyncio.start_server(
-        handler, '127.0.0.1', random_port, loop=event_loop
+        handler, '127.0.0.1', unused_tcp_port, loop=event_loop
     )
 
     await client.send()
@@ -73,7 +73,7 @@ async def test_pickle_many(event_loop, random_port):
 
 
 async def test_pickle_reconnect(event_loop: asyncio.AbstractEventLoop,
-                                random_port):
+                                unused_tcp_port):
 
     async def handler(reader, writer):
         await reader.read(10)
@@ -81,10 +81,10 @@ async def test_pickle_reconnect(event_loop: asyncio.AbstractEventLoop,
         reader.feed_eof()
 
     server = await asyncio.start_server(
-        handler, '127.0.0.1', random_port, loop=event_loop
+        handler, '127.0.0.1', unused_tcp_port, loop=event_loop
     )
 
-    client = PickleClient('127.0.0.1', port=random_port, namespace='')
+    client = PickleClient('127.0.0.1', port=unused_tcp_port, namespace='')
 
     count = 199991
     now = time.time() - 86400
@@ -122,7 +122,7 @@ async def test_pickle_reconnect(event_loop: asyncio.AbstractEventLoop,
         reader.feed_eof()
 
     server = await asyncio.start_server(
-        handler, '127.0.0.1', random_port, loop=event_loop
+        handler, '127.0.0.1', unused_tcp_port, loop=event_loop
     )
 
     await client.send()
