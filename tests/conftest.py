@@ -43,28 +43,22 @@ class Server:
 
 
 @pytest.fixture()
-async def tcp_server(event_loop, unused_tcp_port):
+def tcp_server(event_loop, unused_tcp_port):
     server = Server(loop=event_loop, host='127.0.0.1', port=unused_tcp_port)
-    try:
-        yield server
-    finally:
-        server.task.cancel()
-        await asyncio.wait([server.task])
+    yield server
+    server.task.cancel()
 
 
 @pytest.fixture()
-async def tcp_client(event_loop, tcp_server):
+def tcp_client(event_loop, tcp_server):
     client = TCPClient(
         tcp_server.host,
         port=tcp_server.port,
         namespace='',
     )
     task = event_loop.create_task(client.run())
-    try:
-        yield client
-    finally:
-        task.cancel()
-        await asyncio.wait([task])
+    yield client
+    task.cancel()
 
 
 @pytest.fixture()
