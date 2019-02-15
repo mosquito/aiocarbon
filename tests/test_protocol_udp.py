@@ -1,11 +1,12 @@
 import asyncio
+import time
 
 import pytest
-import time
 
 from aiocarbon.metric import Metric
 from aiocarbon.protocol.udp import UDPClient
-
+from aiocarbon.storage import TotalStorage
+from aiocarbon.storage.base import BaseStorage
 
 pytestmark = pytest.mark.asyncio
 
@@ -34,7 +35,9 @@ async def test_udp_simple(event_loop: asyncio.AbstractEventLoop,
         local_addr=('127.0.0.1', unused_tcp_port)
     )
 
-    client = UDPClient("127.0.0.1", port=unused_tcp_port, namespace='')
+    client = UDPClient("127.0.0.1", port=unused_tcp_port, namespace='',
+                       storage=TotalStorage())
+
     task = event_loop.create_task(client.run())
 
     now = time.time()
@@ -70,7 +73,8 @@ async def test_udp_many(event_loop: asyncio.AbstractEventLoop,
         local_addr=('127.0.0.1', unused_tcp_port)
     )
 
-    client = UDPClient("127.0.0.1", port=unused_tcp_port, namespace='')
+    client = UDPClient("127.0.0.1", port=unused_tcp_port, namespace='',
+                       storage=TotalStorage())
     now = time.time() - 5
 
     for i in range(count):
