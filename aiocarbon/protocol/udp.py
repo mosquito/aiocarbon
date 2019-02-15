@@ -4,6 +4,7 @@ import logging
 import socket
 
 from aiocarbon.metric import Metric
+from aiocarbon.storage.base import BaseStorage
 from .base import BaseClient
 
 log = logging.getLogger(__name__)
@@ -106,10 +107,15 @@ class AsyncUDPSocket:
 class UDPClient(BaseClient):
     SENDING_THRESHOLD = 1200
 
-    def __init__(self, host: str, port: int = 2003, namespace: str=None,
-                 loop: asyncio.AbstractEventLoop = None):
+    def __init__(self, host: str, port: int = 2003, namespace: str = None,
+                 loop: asyncio.AbstractEventLoop = None,
+                 storage: BaseStorage = None):
 
-        super().__init__(host, port, namespace=namespace, loop=loop)
+        super().__init__(host, port,
+                         namespace=namespace,
+                         loop=loop,
+                         storage=storage)
+
         self._socket = AsyncUDPSocket(loop=self.loop)
 
     async def send(self):
