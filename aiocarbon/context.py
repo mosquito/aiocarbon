@@ -9,17 +9,21 @@ from .metric import Metric
 
 
 class Meter:
-    __slots__ = "_name", "value", "timestamp"
+    __slots__ = "_name", "value", "timestamp", "suffix"
 
     TLS = threading.local()
 
-    def __init__(self, name, value=None, timestamp=None):
+    def __init__(self, name, value=None, timestamp=None, suffix=None):
         self._name = name
         self.value = value
         self.timestamp = timestamp or int(time.time())
+        self.suffix = suffix
 
     def send(self, operation: ClassVar[Operations]=Operations.add):
         if self.value and self.timestamp:
+            if self.suffix:
+                self._name = ".".join((self._name, self.suffix))
+
             self.TLS.client.add(
                 Metric(self._name, self.value, self.timestamp),
                 operation=operation
