@@ -4,6 +4,7 @@ import logging
 from aiocarbon.metric import Metric
 from .base import BaseClient
 
+
 log = logging.getLogger(__name__)
 
 
@@ -22,6 +23,8 @@ class TCPClient(BaseClient):
 
                 if idx % self.CHUNK_SIZE == 0:
                     await writer.drain()
+
+            log.debug('%d metric(s) were sent', idx + 1)
 
             await writer.drain()
             writer.close()
