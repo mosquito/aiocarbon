@@ -7,6 +7,7 @@ from aiocarbon.metric import Metric
 from aiocarbon.storage.base import BaseStorage
 from .base import BaseClient
 
+
 log = logging.getLogger(__name__)
 
 
@@ -118,6 +119,10 @@ class UDPClient(BaseClient):
 
         self._socket = AsyncUDPSocket(loop=self.loop)
 
+    async def _send_part(self, data):
+        await self._socket.sendto(data, self._host, self._port)
+        log.debug('%d bytes were sent', len(data))
+
     async def send(self):
         async with self.lock:
             with io.BytesIO() as buffer:
@@ -125,17 +130,13 @@ class UDPClient(BaseClient):
                     buffer.write(self.format_metric(metric))
 
                     if buffer.tell() > self.SENDING_THRESHOLD:
-                        await self._socket.sendto(
-                            buffer.getvalue(), self._host, self._port
-                        )
+                        await self._send_part(buffer.getvalue())
 
                         buffer.seek(0)
                         buffer.truncate(0)
 
                 if buffer.tell():
-                    await self._socket.sendto(
-                        buffer.getvalue(), self._host, self._port
-                    )
+                    await self._send_part(buffer.getvalue())
 
     def format_metric(self, metric: Metric) -> bytes:
         if isinstance(metric.value, float):
