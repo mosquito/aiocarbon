@@ -17,6 +17,7 @@ class TCPClient(BaseClient):
                 self._host, self._port, loop=self.loop
             )
 
+            idx = 0
             for idx, metric in enumerate(self._storage):
                 value = self.format_metric(metric)
                 writer.write(value)
