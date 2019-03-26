@@ -4,6 +4,7 @@ from typing import ClassVar
 import time
 
 from .protocol.base import BaseClient
+from .protocol.buffer import BufferClient
 from .storage.base import Operations
 from .metric import Metric
 
@@ -12,6 +13,7 @@ class Meter:
     __slots__ = "_name", "value", "timestamp", "suffix"
 
     TLS = threading.local()
+    TLS.client = BufferClient()
 
     def __init__(self, name, value=None, timestamp=None, suffix=None):
         self._name = name
@@ -62,6 +64,10 @@ class Timer(Meter):
 
 
 def set_client(client: BaseClient):
+    buffer_client = Meter.TLS.client
+    if hasattr(buffer_client, 'metrics_buffer'):
+        for metric, operation in buffer_client.metrics_buffer:
+            client.add(metric, operation)
     Meter.TLS.client = client
 
 
