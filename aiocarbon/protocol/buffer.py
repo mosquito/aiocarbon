@@ -13,6 +13,11 @@ class BufferedMetric(NamedTuple):
 
 class BufferClient:
 
+    """
+    Special case client for metrics buffering before initialization of
+    proper carbon client completed
+    """
+
     MAX_BUFFER_LEN = 1000
 
     def __init__(self):
