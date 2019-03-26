@@ -64,11 +64,12 @@ class Timer(Meter):
 
 
 def set_client(client: BaseClient):
-    buffer_client = Meter.TLS.client
+    buffer_client, Meter.TLS.client = Meter.TLS.client, client
+
     if hasattr(buffer_client, 'metrics_buffer'):
-        for metric, operation in buffer_client.metrics_buffer:
+        while len(buffer_client.metrics_buffer):
+            metric, operation = buffer_client.metrics_buffer.popleft()
             client.add(metric, operation)
-    Meter.TLS.client = client
 
 
 __all__ = "Meter", "Counter", "Timer", "set_client",

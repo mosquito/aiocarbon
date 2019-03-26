@@ -1,3 +1,4 @@
+from collections import deque
 from typing import NamedTuple
 
 from aiocarbon.metric import Metric
@@ -12,8 +13,10 @@ class BufferedMetric(NamedTuple):
 
 class BufferClient:
 
+    MAX_BUFFER_LEN = 1000
+
     def __init__(self):
-        self.metrics_buffer = []
+        self.metrics_buffer = deque([], maxlen=self.MAX_BUFFER_LEN)
 
     def add(self, metric, operation):
         self.metrics_buffer.append(BufferedMetric(metric, operation))
