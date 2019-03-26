@@ -1,14 +1,10 @@
-from collections import deque
-from typing import NamedTuple
+from collections import deque, namedtuple
 
 from aiocarbon.metric import Metric
 from aiocarbon.storage.base import Operations
 
 
-class BufferedMetric(NamedTuple):
-
-    metric: Metric
-    operation: Operations
+BufferedMetric = namedtuple('BufferedMetric', ['metric', 'operation'])
 
 
 class BufferClient:
