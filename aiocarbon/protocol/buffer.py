@@ -14,7 +14,7 @@ class BufferClient:
     proper carbon client completed
     """
 
-    MAX_BUFFER_LEN = 1000
+    MAX_BUFFER_LEN = 10000
 
     def __init__(self):
         self.metrics_buffer = deque([], maxlen=self.MAX_BUFFER_LEN)
