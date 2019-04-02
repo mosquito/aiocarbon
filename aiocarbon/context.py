@@ -9,24 +9,42 @@ from .storage.base import Operations
 from .metric import Metric
 
 
+class ClientStorage:
+    def __init__(self):
+        self._tls = threading.local()
+
+    def get(self):
+        client = getattr(self._tls, 'client', None)
+        if not client:
+            client = self._tls.client = BufferClient()
+        return client
+
+    def set(self, client: BaseClient):
+        self._tls.client = client
+
+
 class Meter:
     __slots__ = "_name", "value", "timestamp", "suffix"
 
-    TLS = threading.local()
-    TLS.client = BufferClient()
+    client_storage = ClientStorage()
 
-    def __init__(self, name, value=None, timestamp=None, suffix=None):
+    def __init__(
+            self, name: str,
+            value=None,
+            timestamp: int = None,
+            suffix: str = None
+    ):
         self._name = name
         self.value = value
         self.timestamp = timestamp or int(time.time())
         self.suffix = suffix
 
-    def send(self, operation: ClassVar[Operations]=Operations.add):
+    def send(self, operation: ClassVar[Operations] = Operations.add):
         if self.value and self.timestamp:
             if self.suffix:
                 self._name = ".".join((self._name, self.suffix))
 
-            self.TLS.client.add(
+            self.client_storage.get().add(
                 Metric(self._name, self.value, self.timestamp),
                 operation=operation
             )
@@ -64,7 +82,8 @@ class Timer(Meter):
 
 
 def set_client(client: BaseClient):
-    buffer_client, Meter.TLS.client = Meter.TLS.client, client
+    buffer_client = Meter.client_storage.get()
+    Meter.client_storage.set(client)
 
     if hasattr(buffer_client, 'metrics_buffer'):
         while len(buffer_client.metrics_buffer):
