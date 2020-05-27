@@ -40,7 +40,7 @@ class RawStorage(BaseStorage):
                 continue
 
             metrics.extend(returning)
-            log.info("%d metric(s) of %r weren't sent yet because they're "
+            log.debug("%d metric(s) of %r weren't sent yet because they're "
                      "newer than the current timestamp %d",
                      len(returning), name, current_time)
 
