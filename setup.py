@@ -20,7 +20,7 @@ setup(
     author=module.__author__,
     author_email=module.team_email,
     provides=["aiocarbon"],
-    python_requires=">3.5.*, <4",
+    python_requires=">=3.5, <4",
     keywords=["aio", "python", "asyncio", "carbon", "graphite", "client"],
     classifiers=[
         'Development Status :: 4 - Beta',
