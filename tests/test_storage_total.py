@@ -1,16 +1,28 @@
+import math
+
 import pytest
 
 from aiocarbon.metric import Metric
-
+from aiocarbon.storage.base import Operations
 
 pytestmark = pytest.mark.asyncio
 
 
-async def test_sum_metrics_with_the_same_ts(tcp_server, tcp_client, timestamp):
+@pytest.mark.parametrize(
+    'operation,expected_value', [
+        (Operations.add, 42),
+        (Operations.avg, 16),
+        (Operations.min, 9),
+        (Operations.max, 22)
+    ]
+)
+async def test_sum_metrics_with_the_same_ts(
+    tcp_server, tcp_client, timestamp, operation, expected_value
+):
 
-    for val in [11, 7, 24]:
+    for val in [11, 9, 22]:
         metric = Metric(name='foo', value=val, timestamp=timestamp)
-        tcp_client.add(metric)
+        tcp_client.add(metric, operation=operation)
 
     await tcp_server.wait_data()
 
@@ -20,5 +32,5 @@ async def test_sum_metrics_with_the_same_ts(tcp_server, tcp_client, timestamp):
     name, value, ts = line.decode().strip().split(" ")
 
     assert name == 'foo'
-    assert int(value) == 42
+    assert math.isclose(float(value), expected_value)
     assert int(ts) == timestamp
