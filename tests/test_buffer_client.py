@@ -1,16 +1,14 @@
-import pytest
-
 from aiocarbon import Meter, set_client
+from aiocarbon.protocol.tcp import TCPClient
+
+from .conftest import Server
 
 
-pytestmark = pytest.mark.asyncio
-
-
-async def test_buffered_metrics_eventually_sent(tcp_server, tcp_client,
-                                                timestamp):
-
-    for val in [42, 33, 5]:
-        Meter(name='init', value=val, timestamp=timestamp).send()
+async def test_buffered_metrics_eventually_sent(
+    tcp_server: Server, tcp_client: TCPClient, timestamp: int,
+) -> None:
+    for value in (42, 33, 5):
+        Meter(name="init", value=value, timestamp=timestamp).send()
 
     set_client(tcp_client)
 
@@ -18,9 +16,9 @@ async def test_buffered_metrics_eventually_sent(tcp_server, tcp_client,
 
     lines = list(filter(None, tcp_server.data.split(b"\n")))
     assert len(lines) == 1
-    line = lines[0]
-    name, value, ts = line.decode().strip().split(" ")
 
-    assert name == 'init'
-    assert int(value) == 42 + 33 + 5
+    name, value_text, ts = lines[0].decode().strip().split(" ")
+
+    assert name == "init"
+    assert int(float(value_text)) == 42 + 33 + 5
     assert int(ts) == timestamp

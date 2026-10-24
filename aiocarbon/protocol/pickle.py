@@ -2,55 +2,78 @@ import asyncio
 import logging
 import pickle
 import struct
-from typing import Tuple, List
 
 from aiocarbon.metric import Metric
+
 from .base import BaseClient
 
 log = logging.getLogger(__name__)
+
+PickleMetric = tuple[str, tuple[int, float]]
 
 
 class PickleClient(BaseClient):
     CHUNK_SIZE = 512
 
-    async def __sender(self, data: List):
-        payload = pickle.dumps(data, protocol=2)
+    # Carbon accepts the pickle protocol 2 only.
+    PICKLE_PROTOCOL = 2
+
+    SEND_ATTEMPTS = 3
+    RETRY_DELAY = 0.5
+
+    async def send_payload(self, data: list[PickleMetric]) -> None:
+        """Send one batch of metrics. Retry SEND_ATTEMPTS times at most."""
+        payload = pickle.dumps(data, protocol=self.PICKLE_PROTOCOL)
         header = struct.pack("!L", len(payload))
 
-        while True:
+        for attempt in range(1, self.SEND_ATTEMPTS + 1):
             try:
-                reader, writer = await asyncio.open_connection(
-                    self._host, self._port, loop=self.loop
+                _, writer = await asyncio.open_connection(
+                    self.host, self.port,
                 )
 
-                writer.write(header)
-                await writer.drain()
-                writer.write(payload)
-                await writer.drain()
+                try:
+                    writer.write(header)
+                    writer.write(payload)
+                    await writer.drain()
+                finally:
+                    writer.close()
+                    await writer.wait_closed()
+            except Exception:
+                log.exception(
+                    "Failed to send %d metric(s), attempt %d of %d",
+                    len(data), attempt, self.SEND_ATTEMPTS,
+                )
 
-                writer.close()
-                reader.feed_eof()
-            except:
-                log.exception("Failed to send metrics")
+                if attempt == self.SEND_ATTEMPTS:
+                    # All the attempts failed. Drop this batch, because the
+                    # caller must not block the sending loop.
+                    return
+
+                await asyncio.sleep(self.RETRY_DELAY)
             else:
-                break
+                log.debug("%d metric(s) were sent", len(data))
+                return
 
-    async def send(self):
+    async def send(self) -> None:
         async with self.lock:
-            data = []
+            data: list[PickleMetric] = []
 
-            for idx, metric in enumerate(self._storage):
+            for metric in self.storage:
                 data.append(self.format_metric(metric))
 
-                if idx % self.CHUNK_SIZE == 0:
-                    await self.__sender(data)
-                    data.clear()
+                if len(data) >= self.CHUNK_SIZE:
+                    await self.send_payload(data)
+                    data = []
 
             if data:
-                await self.__sender(data)
+                await self.send_payload(data)
 
-    def format_metric(self, metric: Metric) -> Tuple[str, Tuple[float, int]]:
+    def format_metric(self, metric: Metric) -> PickleMetric:
         return (
             self.format_metric_name(metric),
-            (metric.timestamp, metric.value)
+            (metric.timestamp, metric.value),
         )
+
+
+__all__ = ("PickleClient", "PickleMetric")

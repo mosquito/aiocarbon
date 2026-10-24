@@ -1,74 +1,58 @@
 import asyncio
 import pickle
 import struct
+from contextlib import suppress
+
+HEADER_SIZE = struct.calcsize("!L")
 
 
-async def tcp_handler(reader: asyncio.StreamReader,
-                      writer: asyncio.StreamWriter):
+async def tcp_handler(
+    reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
+) -> None:
+    host, port = writer.get_extra_info("peername")[:2]
 
-    addr = writer.get_extra_info('peername')
     while not reader.at_eof():
-        try:
-            line = await reader.readline()
-            if line:
-                print("%s:%d" % addr, line.decode().strip())
-        except:
-            break
+        line = await reader.readline()
+
+        if line:
+            print(f"{host}:{port}", line.decode().strip())
 
 
-async def pickle_handler(reader: asyncio.StreamReader,
-                         writer: asyncio.StreamWriter):
-    addr = writer.get_extra_info('peername')
-    while not reader.at_eof():
-        try:
-            header = await reader.readexactly(4)
+async def pickle_handler(
+    reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
+) -> None:
+    host, port = writer.get_extra_info("peername")[:2]
+
+    with suppress(asyncio.IncompleteReadError):
+        while not reader.at_eof():
+            header = await reader.readexactly(HEADER_SIZE)
             size = struct.unpack("!L", header)[0]
 
-            packet = pickle.loads(await reader.readexactly(size))
-
-            for name, payload in packet:
-                ts, value = payload
-                print("%s:%d" % addr, "%s %f %s" % (name, value, ts))
-
-        except asyncio.IncompleteReadError:
-            return
+            for name, payload in pickle.loads(
+                await reader.readexactly(size),
+            ):
+                timestamp, value = payload
+                print(f"{host}:{port}", f"{name} {value:f} {timestamp}")
 
 
 class UDPServerProtocol(asyncio.DatagramProtocol):
-
-    def __init__(self):
-        self.queue = asyncio.Queue()
-        super().__init__()
-
-    def connection_made(self, transport):
-        self.transport = transport
-
-    def datagram_received(self, data, addr):
-        for line in data.split(b'\n'):
-            if not line:
-                continue
-
-            print("%s:%s" % addr,  line.decode())
-
-    def close(self):
-        self.queue.put_nowait(None)
+    def datagram_received(self, data: bytes, addr: object) -> None:
+        for line in data.split(b"\n"):
+            if line:
+                print(addr, line.decode())
 
 
-async def main(loop: asyncio.AbstractEventLoop):
-    await asyncio.start_server(
-        tcp_handler, '127.0.0.1', 2003, loop=loop
-    )
+async def main() -> None:
+    loop = asyncio.get_running_loop()
 
-    await asyncio.start_server(
-        pickle_handler, '127.0.0.1', 2004, loop=loop
-    )
-
+    await asyncio.start_server(tcp_handler, "127.0.0.1", 2003)
+    await asyncio.start_server(pickle_handler, "127.0.0.1", 2004)
     await loop.create_datagram_endpoint(
-        UDPServerProtocol, ('127.0.0.1', 2003)
+        UDPServerProtocol, ("127.0.0.1", 2003),
     )
+
+    await asyncio.Event().wait()
 
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main(loop))
-    loop.run_forever()
+    asyncio.run(main())

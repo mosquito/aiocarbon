@@ -160,3 +160,8 @@ tags
 [._]*.un~
 
 # End of https://www.gitignore.io/api/vim
+
+# Tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/

@@ -1,0 +1,101 @@
+[project]
+name = "aiocarbon"
+version = "0.16.0"
+description = "Asynchronous client for carbon"
+readme = "README.rst"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENCE.md"]
+authors = [{ name = "Dmitry Orlov", email = "me@mosquito.su" }]
+keywords = ["aio", "python", "asyncio", "carbon", "graphite", "client"]
+dependencies = []
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Natural Language :: English",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Monitoring",
+    "Typing :: Typed",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/mosquito/aiocarbon"
+"Source" = "https://github.com/mosquito/aiocarbon/"
+"Issues" = "https://github.com/mosquito/aiocarbon/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+exclude = [".*", "*.pyc", "__pycache__"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["aiocarbon"]
+
+[dependency-groups]
+dev = [
+    "coveralls>=4.0.1",
+    "mypy>=1.17",
+    "pytest>=8.4",
+    "pytest-asyncio>=1.1",
+    "pytest-cov>=6.2",
+    "ruff>=0.11",
+]
+
+[tool.uv]
+package = true
+
+[tool.pytest.ini_options]
+addopts = "--cov aiocarbon --cov-report term-missing"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 79
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "B",   # flake8-bugbear
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "W",   # pycodestyle warnings
+]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+no_implicit_reexport = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+files = ["aiocarbon", "tests", "example"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*", "carbon_server", "client"]
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+disallow_untyped_decorators = false
+disallow_untyped_defs = false

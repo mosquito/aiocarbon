@@ -1,40 +1,28 @@
 import asyncio
 import pickle
 import struct
-
-import pytest
 import time
 
 from aiocarbon.metric import Metric
-from aiocarbon.protocol.pickle import PickleClient
+from aiocarbon.protocol.pickle import PickleClient, PickleMetric
+
+HEADER_SIZE = struct.calcsize("!L")
 
 
-pytestmark = pytest.mark.asyncio
+class Collector:
+    """Reads the pickle protocol of carbon, and keeps every metric."""
 
+    def __init__(self, expected: int) -> None:
+        self.expected = expected
+        self.metrics: list[PickleMetric] = []
+        self.event = asyncio.Event()
 
-async def test_pickle_many(event_loop, unused_tcp_port):
-    client = PickleClient('127.0.0.1', port=unused_tcp_port, namespace='')
-
-    count = 9991
-    now = time.time() - 1
-
-    for i in range(count):
-        metric = Metric(name='foo', value=i, timestamp=now - i)
-        client.add(metric)
-
-    data = list()
-    event = asyncio.Event(loop=event_loop)
-
-    async def handler(reader: asyncio.StreamReader,
-                      writer: asyncio.StreamWriter):
-
-        nonlocal data
-
-        header_size = struct.calcsize('!L')
-
+    async def handler(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
+    ) -> None:
         while not reader.at_eof():
             try:
-                header = await reader.readexactly(header_size)
+                header = await reader.readexactly(HEADER_SIZE)
             except asyncio.IncompleteReadError:
                 break
 
@@ -45,94 +33,74 @@ async def test_pickle_many(event_loop, unused_tcp_port):
             except asyncio.IncompleteReadError:
                 break
 
-            for metric in pickle.loads(payload):
-                data.append(metric)
+            self.metrics.extend(pickle.loads(payload))
 
-        if len(data) == count:
-            event.set()
+        if len(self.metrics) == self.expected:
+            self.event.set()
+
         writer.close()
-        reader.feed_eof()
 
+
+def assert_sorted_values(metrics: list[PickleMetric]) -> None:
+    for idx, (name, payload) in enumerate(
+        sorted(metrics, key=lambda metric: metric[1][1]),
+    ):
+        assert name == "foo"
+        assert payload[1] == idx
+
+
+async def test_pickle_many(unused_tcp_port: int) -> None:
+    client = PickleClient("127.0.0.1", port=unused_tcp_port, namespace="")
+
+    count = 9991
+    now = time.time() - 1
+
+    for i in range(count):
+        client.add(Metric(name="foo", value=i, timestamp=now - i))
+
+    collector = Collector(count)
     server = await asyncio.start_server(
-        handler, '127.0.0.1', unused_tcp_port, loop=event_loop
+        collector.handler, "127.0.0.1", unused_tcp_port,
     )
 
     await client.send()
-    await event.wait()
+    await collector.event.wait()
 
-    for idx, metric in enumerate(sorted(data, key=lambda x: x[1][1])):
-        name, payload = metric
-        ts, value = payload
-
-        assert name == 'foo'
-        assert value == idx
+    assert_sorted_values(collector.metrics)
 
     server.close()
+    await server.wait_closed()
 
 
-async def test_pickle_reconnect(event_loop: asyncio.AbstractEventLoop,
-                                unused_tcp_port):
-
-    async def handler(reader, writer):
+async def test_pickle_reconnect(unused_tcp_port: int) -> None:
+    async def reject(
+        reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
+    ) -> None:
         await reader.read(10)
         writer.close()
-        reader.feed_eof()
 
-    server = await asyncio.start_server(
-        handler, '127.0.0.1', unused_tcp_port, loop=event_loop
-    )
+    server = await asyncio.start_server(reject, "127.0.0.1", unused_tcp_port)
 
-    client = PickleClient('127.0.0.1', port=unused_tcp_port, namespace='')
+    client = PickleClient("127.0.0.1", port=unused_tcp_port, namespace="")
 
     count = 199991
     now = time.time() - 86400
 
     for i in range(count):
-        metric = Metric(name='foo', value=i, timestamp=now - i)
-        client.add(metric)
+        client.add(Metric(name="foo", value=i, timestamp=now - i))
 
     server.close()
     await server.wait_closed()
-    event = asyncio.Event()
 
-    data = list()
-
-    async def handler(reader, writer):
-        nonlocal data
-        while not reader.at_eof():
-            try:
-                header = await reader.readexactly(4)
-            except asyncio.IncompleteReadError:
-                break
-
-            chunk_size = struct.unpack("!L", header)[0]
-
-            try:
-                payload = await reader.readexactly(chunk_size)
-            except asyncio.IncompleteReadError:
-                break
-
-            for metric in pickle.loads(payload):
-                data.append(metric)
-
-        if len(data) == count:
-            event.set()
-        writer.close()
-        reader.feed_eof()
-
+    collector = Collector(count)
     server = await asyncio.start_server(
-        handler, '127.0.0.1', unused_tcp_port, loop=event_loop
+        collector.handler, "127.0.0.1", unused_tcp_port,
     )
 
     await client.send()
-    await event.wait()
+    await collector.event.wait()
 
-    for idx, metric in enumerate(sorted(data, key=lambda x: x[1][1])):
-        name, payload = metric
-        ts, value = payload
-
-        assert name == 'foo'
-        assert value == idx
+    assert_sorted_values(collector.metrics)
 
     server.close()
     await server.wait_closed()

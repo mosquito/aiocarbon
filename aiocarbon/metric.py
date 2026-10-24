@@ -1,19 +1,31 @@
-from collections import namedtuple
-
 import time
+from typing import NamedTuple
 
 
-class Metric(namedtuple("Metric", ("name", "value", "timestamp"))):
-    def __new__(cls, name, value, timestamp=None):
-        timestamp = int(timestamp or time.time())
+class MetricBase(NamedTuple):
+    name: str
+    value: float
+    timestamp: int
 
-        if not isinstance(value, (int, float)):
-            raise TypeError("Value should be int or float not %r" % type(value))
 
-        return super().__new__(cls, name=name, value=value, timestamp=timestamp)
+class Metric(MetricBase):
+    """One metric sample. The default timestamp is the current time."""
 
-    def __str__(self):
-        return "{0.name} {0.value} {0.timestamp}".format(self)
+    __slots__ = ()
 
-    def __repr__(self):
-        return "<Metric: {0.name} {0.value} {0.timestamp}>".format(self)
+    def __new__(
+        cls, name: str, value: float, timestamp: float | None = None,
+    ) -> "Metric":
+        if not isinstance(value, int | float):
+            raise TypeError(f"Value must be int or float, not {type(value)!r}")
+
+        return super().__new__(cls, name, value, int(timestamp or time.time()))
+
+    def __str__(self) -> str:
+        return f"{self.name} {self.value} {self.timestamp}"
+
+    def __repr__(self) -> str:
+        return f"<Metric: {self.name} {self.value} {self.timestamp}>"
+
+
+__all__ = ("Metric", "MetricBase")

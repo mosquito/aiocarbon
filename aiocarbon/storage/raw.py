@@ -1,48 +1,51 @@
-import time
-from typing import AsyncIterable
 import logging
+import time
+from collections.abc import Iterator
 
-from immutables import Map
-
-from aiocarbon.storage.base import BaseStorage
 from aiocarbon.metric import Metric
-
+from aiocarbon.storage.base import BaseStorage, Operation
 
 log = logging.getLogger(__name__)
 
+RawStore = list[tuple[int, float]]
 
-class RawStorage(BaseStorage):
 
-    """ Saves metrics as is """
+class RawStorage(BaseStorage[RawStore]):
+    """Saves metrics as is."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._metrics = Map()
-        self._storage_class = list
+    def create_store(self) -> RawStore:
+        return []
 
-    def __iter__(self) -> AsyncIterable[Metric]:
+    def add(self, metric: Metric, operation: Operation | None = None) -> None:
+        self.get_metric(metric.name).append(
+            (metric.timestamp, metric.value),
+        )
+
+    def __iter__(self) -> Iterator[Metric]:
         current_time = int(time.time())
 
-        for name, metrics in self._metrics.items():  # type: Counter
-            returning = list()
+        for name, metrics in self.snapshot():
+            pending: RawStore = []
 
-            for ts, value in metrics:
-
-                if ts >= current_time:
-                    returning.append((ts, value))
+            for timestamp, value in metrics:
+                if timestamp >= current_time:
+                    # The interval is not complete. Keep the sample.
+                    pending.append((timestamp, value))
                     continue
 
-                yield Metric(name=name, timestamp=ts, value=value)
+                yield Metric(name=name, timestamp=timestamp, value=value)
 
             metrics.clear()
 
-            if not returning:
+            if not pending:
                 continue
 
-            metrics.extend(returning)
-            log.debug("%d metric(s) of %r weren't sent yet because they're "
-                     "newer than the current timestamp %d",
-                     len(returning), name, current_time)
+            metrics.extend(pending)
+            log.debug(
+                "%d metric(s) of %r were not sent, because they are newer "
+                "than the current timestamp %d",
+                len(pending), name, current_time,
+            )
 
-    def add(self, metric: Metric, operation=None):
-        self._get_metric(metric.name).append((metric.timestamp, metric.value))
+
+__all__ = ("RawStorage", "RawStore")

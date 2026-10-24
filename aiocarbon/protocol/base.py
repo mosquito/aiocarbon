@@ -2,68 +2,76 @@ import abc
 import asyncio
 import logging
 import re
+from typing import Any
 
 from aiocarbon.metric import Metric
-from aiocarbon.storage.base import BaseStorage
-from aiocarbon.storage import TotalStorage
-
+from aiocarbon.storage import BaseStorage, Operation, TotalStorage
 
 log = logging.getLogger(__name__)
 
-CARBON_NS_INVALID_CHARS = re.compile(r'([^\w\d\.\-]+|(\.){2,})')
+CARBON_NS_INVALID_CHARS = re.compile(r"([^\w\d\.\-]+|(\.){2,})")
+
+DEFAULT_NAMESPACE = "aiocarbon"
 
 
-def strip_carbon_ns(string):
-    return CARBON_NS_INVALID_CHARS.sub('_', string).strip('_').lower()
+def strip_carbon_ns(string: str) -> str:
+    """Replace the characters which carbon does not accept in a name."""
+    return CARBON_NS_INVALID_CHARS.sub("_", string).strip("_").lower()
 
 
-class BaseClient:
+class BaseClient(abc.ABC):
     SEND_PERIOD = 1
 
-    def __init__(self, host: str, port: int = 2003,
-                 loop: asyncio.AbstractEventLoop = None,
-                 storage: BaseStorage = None,
-                 namespace: str=None):
-        self.loop = loop or asyncio.get_event_loop()
-        self.namespace = namespace if namespace is not None else 'aiocarbon'
-        self._host = host
-        self._port = port
-        self._storage = storage or TotalStorage()
-        self.lock = asyncio.Lock(loop=self.loop)
+    def __init__(
+        self,
+        host: str,
+        port: int = 2003,
+        storage: BaseStorage[Any] | None = None,
+        namespace: str | None = None,
+    ) -> None:
+        self.host = host
+        self.port = port
+        self.storage: BaseStorage[Any] = storage or TotalStorage()
+        self.lock = asyncio.Lock()
+        self.namespace = strip_carbon_ns(
+            DEFAULT_NAMESPACE if namespace is None else namespace,
+        )
 
-    @property
-    def namespace(self):
-        return self._ns
+    def set_namespace(self, namespace: str) -> None:
+        """Set the metric name prefix. Invalid characters are replaced."""
+        self.namespace = strip_carbon_ns(namespace)
 
-    @namespace.setter
-    def namespace(self, value):
-        self._ns = strip_carbon_ns(value)
-
-    async def run(self):
+    async def run(self) -> None:
+        """Send the collected metrics every SEND_PERIOD seconds."""
         while True:
             try:
                 await self.send()
-            except:
+            except Exception:
                 log.exception("Exception while sending metrics")
             finally:
-                await asyncio.sleep(self.SEND_PERIOD, loop=self.loop)
+                await asyncio.sleep(self.SEND_PERIOD)
 
-    def format_metric_name(self, metric: Metric):
-        if self._ns:
-            return ".".join((self._ns, metric.name))
-        else:
-            return metric.name
+    def format_metric_name(self, metric: Metric) -> str:
+        if self.namespace:
+            return ".".join((self.namespace, metric.name))
+        return metric.name
 
     @abc.abstractmethod
-    def send(self):
+    async def send(self) -> None:
+        """Send all the metrics which are ready."""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def format_metric(self, metric: Metric):
+    def format_metric(self, metric: Metric) -> Any:
+        """Convert one metric to the wire format of this protocol."""
         raise NotImplementedError
 
-    def add(self, metric: Metric, operation=None):
-        kwargs = {}
-        if operation is not None:
-            kwargs['operation'] = operation
-        return self._storage.add(metric, **kwargs)
+    def add(self, metric: Metric, operation: Operation | None = None) -> None:
+        self.storage.add(metric, operation)
+
+
+__all__ = (
+    "DEFAULT_NAMESPACE",
+    "BaseClient",
+    "strip_carbon_ns",
+)
