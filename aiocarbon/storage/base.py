@@ -11,7 +11,27 @@ class Operations:
 
     @staticmethod
     def avg(store, metric: Metric):
-        store[metric.timestamp] = (store[metric.timestamp] + metric.value) / 2
+        timestamp = metric.timestamp
+        if timestamp in store:
+            store[timestamp] = (store[timestamp] + metric.value) / 2
+        else:
+            store[timestamp] = metric.value
+
+    @staticmethod
+    def min(store, metric: Metric):
+        timestamp = metric.timestamp
+        if timestamp in store:
+            store[timestamp] = min(store[timestamp], metric.value)
+        else:
+            store[timestamp] = metric.value
+
+    @staticmethod
+    def max(store, metric: Metric):
+        timestamp = metric.timestamp
+        if timestamp in store:
+            store[timestamp] = max(store[timestamp], metric.value)
+        else:
+            store[timestamp] = metric.value
 
 
 class BaseStorage:
