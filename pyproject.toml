@@ -48,17 +48,22 @@ exclude = [".*", "*.pyc", "__pycache__"]
 packages = ["aiocarbon"]
 
 [dependency-groups]
-dev = [
+test = [
     "coveralls>=4.0.1",
-    "mypy>=1.17",
     "pytest>=8.4",
     "pytest-asyncio>=1.1",
     "pytest-cov>=6.2",
+]
+# mypy requires a PyO3 extension, and PyO3 has no free-threaded build for
+# Python 3.13. Keep the linters apart from the test group.
+lint = [
+    "mypy>=1.17",
     "ruff>=0.11",
 ]
 
 [tool.uv]
 package = true
+default-groups = ["test", "lint"]
 
 [tool.pytest.ini_options]
 addopts = "--cov aiocarbon --cov-report term-missing"

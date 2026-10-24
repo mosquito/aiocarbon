@@ -16,14 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv run ruff check .
+      - run: uv run --no-default-groups --group lint ruff check .
 
   mypy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv run mypy
+      - run: uv run --no-default-groups --group lint --group test mypy
 
   tests:
     runs-on: ${{ matrix.os }}
@@ -52,9 +52,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
-      - run: uv run pytest
+      - run: uv run --no-default-groups --group test pytest
 
-      - run: uv run coveralls
+      - run: uv run --no-default-groups --group test coveralls
         env:
           COVERALLS_PARALLEL: 'true'
           COVERALLS_SERVICE_NAME: github

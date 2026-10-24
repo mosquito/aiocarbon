@@ -12,25 +12,29 @@ version = "0.16.0"
 source = { editable = "." }
 
 [package.dev-dependencies]
-dev = [
-    { name = "coveralls" },
+lint = [
     { name = "mypy" },
+    { name = "ruff" },
+]
+test = [
+    { name = "coveralls" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
-    { name = "ruff" },
 ]
 
 [package.metadata]
 
 [package.metadata.requires-dev]
-dev = [
-    { name = "coveralls", specifier = ">=4.0.1" },
+lint = [
     { name = "mypy", specifier = ">=1.17" },
+    { name = "ruff", specifier = ">=0.11" },
+]
+test = [
+    { name = "coveralls", specifier = ">=4.0.1" },
     { name = "pytest", specifier = ">=8.4" },
     { name = "pytest-asyncio", specifier = ">=1.1" },
     { name = "pytest-cov", specifier = ">=6.2" },
-    { name = "ruff", specifier = ">=0.11" },
 ]
 
 [[package]]
