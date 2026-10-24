@@ -160,3 +160,11 @@ tags
 [._]*.un~
 
 # End of https://www.gitignore.io/api/vim
+
+# Tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# GitHub Actions (the global gitignore hides every dotted path)
+!.github/

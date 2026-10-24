@@ -1,17 +1,16 @@
 import asyncio
+import time
 
 import pytest
-import time
 
 from aiocarbon.metric import Metric
 from aiocarbon.protocol.tcp import TCPClient
 
+from .conftest import Server
 
-pytestmark = pytest.mark.asyncio
 
-
-async def test_tcp_simple(tcp_client, tcp_server, event_loop):
-    metric = Metric(name='foo', value=42)
+async def test_tcp_simple(tcp_client: TCPClient, tcp_server: Server) -> None:
+    metric = Metric(name="foo", value=42)
     tcp_client.add(metric)
 
     await tcp_server.wait_data()
@@ -23,18 +22,16 @@ async def test_tcp_simple(tcp_client, tcp_server, event_loop):
     assert int(float(ts)) == int(metric.timestamp)
 
 
-async def test_tcp_many(tcp_client, tcp_server, event_loop):
+async def test_tcp_many(tcp_client: TCPClient, tcp_server: Server) -> None:
     now = int(time.time()) - 86400
 
     for i in range(199):
-        metric = Metric(name='foo', value=42, timestamp=now + i)
-        tcp_client.add(metric)
+        tcp_client.add(Metric(name="foo", value=42, timestamp=now + i))
 
     await tcp_server.wait_data()
 
     for i in range(199):
-        metric = Metric(name='foo', value=42, timestamp=now - i)
-        tcp_client.add(metric)
+        tcp_client.add(Metric(name="foo", value=42, timestamp=now - i))
 
     await tcp_server.wait_data()
 
@@ -45,29 +42,25 @@ async def test_tcp_many(tcp_client, tcp_server, event_loop):
     for line in lines:
         name, value, ts = line.decode().strip().split(" ")
 
-        assert name == 'foo'
+        assert name == "foo"
         assert int(float(value)) == 42
 
 
-async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
-                             unused_tcp_port):
-
-    async def handler(reader, writer):
+async def test_tcp_reconnect(unused_tcp_port: int) -> None:
+    async def reject(
+        reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
+    ) -> None:
         await reader.read(10)
         writer.close()
-        reader.feed_eof()
 
-    server = await asyncio.start_server(
-        handler, '127.0.0.1', unused_tcp_port, loop=event_loop
-    )
+    server = await asyncio.start_server(reject, "127.0.0.1", unused_tcp_port)
 
-    client = TCPClient('127.0.0.1', port=unused_tcp_port, namespace='')
+    client = TCPClient("127.0.0.1", port=unused_tcp_port, namespace="")
     count = 19907
     now = time.time() - 1
 
     for i in range(count):
-        metric = Metric(name='foo', value=i, timestamp=now - i)
-        client.add(metric)
+        client.add(Metric(name="foo", value=i, timestamp=now - i))
 
     server.close()
     await server.wait_closed()
@@ -75,28 +68,29 @@ async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
     with pytest.raises(ConnectionError):
         await client.send()
 
-    event = asyncio.Event(loop=event_loop)
+    event = asyncio.Event()
+    data = b""
 
-    data = b''
-
-    async def handler(reader, writer):
+    async def collect(
+        reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
+    ) -> None:
         nonlocal data
-        while not reader.at_eof():
-            try:
-                data += await reader.read(1024)
-            except:
-                break
 
         try:
-            data += await reader.read(1024)
-        except:
-            pass
+            while not reader.at_eof():
+                chunk = await reader.read(4096)
 
-        event.set()
+                if not chunk:
+                    break
 
-    server = await asyncio.start_server(
-        handler, '127.0.0.1', unused_tcp_port, loop=event_loop
-    )
+                data += chunk
+
+            event.set()
+        finally:
+            # Python 3.12 waits for every connection in wait_closed().
+            writer.close()
+
+    server = await asyncio.start_server(collect, "127.0.0.1", unused_tcp_port)
 
     await client.send()
     await event.wait()
@@ -105,17 +99,12 @@ async def test_tcp_reconnect(event_loop: asyncio.AbstractEventLoop,
     await server.wait_closed()
 
     lines = sorted(
-        map(
-            lambda x: x.split(' '),
-            filter(None, map(lambda x: x.decode(), data.split(b"\n")))
-        ),
-        key=lambda x: int(x[1])
+        (line.decode().split(" ") for line in data.split(b"\n") if line),
+        key=lambda parts: float(parts[1]),
     )
 
-    for idx, (name, value, ts) in enumerate(lines):
-        value = float(value)
-
-        assert name == 'foo'
-        assert idx == value
-
     assert len(lines) == count
+
+    for idx, parts in enumerate(lines):
+        assert parts[0] == "foo"
+        assert float(parts[1]) == idx

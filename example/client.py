@@ -1,14 +1,16 @@
 import asyncio
+
 import aiocarbon
+from aiocarbon.protocol.base import BaseClient
 
 
-async def send(loop, client_class, port):
+async def send(client_class: type[BaseClient], port: int) -> None:
     client = aiocarbon.setup(
-        host="127.0.0.1", port=port, client_class=client_class
+        host="127.0.0.1", port=port, client_class=client_class,
     )
 
-    # starts sending data every second
-    task = loop.create_task(client.run())
+    # Send the collected data every second.
+    task = asyncio.get_running_loop().create_task(client.run())
 
     for _ in range(100):
         with aiocarbon.Counter("foo"), aiocarbon.Timer("bar"):
@@ -18,20 +20,18 @@ async def send(loop, client_class, port):
         with aiocarbon.Counter("foo"), aiocarbon.Timer("bar"):
             pass
 
-    # sends data from buffer before exit
+    # Send the rest of the data before the exit.
     await client.send()
 
     task.cancel()
     await asyncio.wait([task])
 
 
-async def main(loop):
-    await send(loop, aiocarbon.TCPClient, 2003)
-    await send(loop, aiocarbon.UDPClient, 2003)
-    await send(loop, aiocarbon.PickleClient, 2004)
+async def main() -> None:
+    await send(aiocarbon.TCPClient, 2003)
+    await send(aiocarbon.UDPClient, 2003)
+    await send(aiocarbon.PickleClient, 2004)
 
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main(loop))
-    loop.close()
+    asyncio.run(main())

@@ -2,8 +2,8 @@ import asyncio
 import logging
 
 from aiocarbon.metric import Metric
-from .base import BaseClient
 
+from .base import BaseClient
 
 log = logging.getLogger(__name__)
 
@@ -11,34 +11,33 @@ log = logging.getLogger(__name__)
 class TCPClient(BaseClient):
     CHUNK_SIZE = 512
 
-    async def send(self):
+    async def send(self) -> None:
         async with self.lock:
-            reader, writer = await asyncio.open_connection(
-                self._host, self._port, loop=self.loop
-            )
+            _, writer = await asyncio.open_connection(self.host, self.port)
 
-            idx = 0
-            for idx, metric in enumerate(self._storage):
-                value = self.format_metric(metric)
-                writer.write(value)
+            try:
+                count = 0
+                for idx, metric in enumerate(self.storage):
+                    writer.write(self.format_metric(metric))
+                    count = idx + 1
 
-                if idx % self.CHUNK_SIZE == 0:
-                    await writer.drain()
+                    if idx % self.CHUNK_SIZE == 0:
+                        await writer.drain()
 
-            log.debug('%d metric(s) were sent', idx + 1)
-
-            await writer.drain()
-            writer.close()
-            reader.feed_eof()
+                log.debug("%d metric(s) were sent", count)
+                await writer.drain()
+            finally:
+                writer.close()
+                await writer.wait_closed()
 
     def format_metric(self, metric: Metric) -> bytes:
         if isinstance(metric.value, float):
-            value = "%.12f" % metric.value
+            value = f"{metric.value:.12f}"
         else:
-            value = metric.value
+            value = str(metric.value)
 
-        return (
-            "%s %s %s\n" % (
-                self.format_metric_name(metric), value, metric.timestamp,
-            )
-        ).encode()
+        name = self.format_metric_name(metric)
+        return f"{name} {value} {metric.timestamp}\n".encode()
+
+
+__all__ = ("TCPClient",)
