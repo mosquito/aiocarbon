@@ -165,3 +165,6 @@ tags
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+
+# GitHub Actions (the global gitignore hides every dotted path)
+!.github/
