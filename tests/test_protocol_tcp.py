@@ -76,15 +76,19 @@ async def test_tcp_reconnect(unused_tcp_port: int) -> None:
     ) -> None:
         nonlocal data
 
-        while not reader.at_eof():
-            chunk = await reader.read(4096)
+        try:
+            while not reader.at_eof():
+                chunk = await reader.read(4096)
 
-            if not chunk:
-                break
+                if not chunk:
+                    break
 
-            data += chunk
+                data += chunk
 
-        event.set()
+            event.set()
+        finally:
+            # Python 3.12 waits for every connection in wait_closed().
+            writer.close()
 
     server = await asyncio.start_server(collect, "127.0.0.1", unused_tcp_port)
 

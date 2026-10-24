@@ -17,6 +17,7 @@ class Server:
         self.data = b""
         self.event = asyncio.Event()
         self.server: asyncio.Server | None = None
+        self.connections: set[asyncio.StreamWriter] = set()
 
     async def start(self) -> None:
         self.server = await asyncio.start_server(
@@ -28,21 +29,34 @@ class Server:
             return
 
         self.server.close()
+
+        # Python 3.12 waits for the connection handlers in wait_closed(). A
+        # cancelled client can leave a connection open, and then the handler
+        # waits for data forever. Close the connections before the wait.
+        for writer in tuple(self.connections):
+            writer.close()
+
         await self.server.wait_closed()
 
     async def handler(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
     ) -> None:
-        while not reader.at_eof():
-            chunk = await reader.read(4096)
+        self.connections.add(writer)
 
-            if not chunk:
-                break
+        try:
+            while not reader.at_eof():
+                chunk = await reader.read(4096)
 
-            self.data += chunk
+                if not chunk:
+                    break
 
-        if self.data:
-            self.event.set()
+                self.data += chunk
+
+            if self.data:
+                self.event.set()
+        finally:
+            self.connections.discard(writer)
+            writer.close()
 
     async def wait_data(self) -> None:
         """Wait until a client sends data and closes the connection."""

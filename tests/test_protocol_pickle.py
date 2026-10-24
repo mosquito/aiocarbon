@@ -38,7 +38,9 @@ class Collector:
         if len(self.metrics) == self.expected:
             self.event.set()
 
+        # Python 3.12 waits for every connection in wait_closed().
         writer.close()
+        await writer.wait_closed()
 
 
 def assert_sorted_values(metrics: list[PickleMetric]) -> None:
