@@ -67,6 +67,8 @@ default-groups = ["test", "lint"]
 
 [tool.pytest.ini_options]
 addopts = "--cov aiocarbon --cov-report term-missing"
+# Print the stack of a stuck test instead of a silent timeout of the job.
+faulthandler_timeout = 120
 asyncio_mode = "auto"
 testpaths = ["tests"]
 
